@@ -54,7 +54,7 @@ func ConfigDir() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("cannot find home directory: %w", err)
 	}
-	dir := filepath.Join(home, ".opencode")
+	dir := filepath.Join(home, ".cli-routines")
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return "", fmt.Errorf("cannot create config directory %s: %w", dir, err)
 	}

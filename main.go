@@ -16,7 +16,7 @@ func main() {
 Each routine defines a schedule (cron), a working folder, and an executor
 type — shell commands, OpenCode prompts, or Claude prompts.
 
-Define routines in ~/.opencode/routines.json and run them on a cron schedule.`,
+Define routines in ~/.cli-routines/routines.json and run them on a cron schedule.`,
 		SilenceUsage: true,
 	}
 

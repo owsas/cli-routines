@@ -41,7 +41,7 @@ routines stop
 
 ## Config
 
-Routines are defined in `~/.opencode/routines.json`.
+Routines are defined in `~/.cli-routines/routines.json`.
 
 ### Schema
 
@@ -140,7 +140,7 @@ Supports `@every` syntax too: `@every 1h30m`, `@every 5m`, `@daily`, `@hourly`.
 
 | Command | Description |
 |---|---|
-| `routines init` | Create `~/.opencode/routines.json` with an example routine |
+| `routines init` | Create `~/.cli-routines/routines.json` with an example routine |
 | `routines list` | List all routines (alias: `ls`) |
 | `routines status` | Show daemon status and next run times |
 | `routines start` | Start the daemon in the background |
@@ -150,7 +150,7 @@ Supports `@every` syntax too: `@every 1h30m`, `@every 5m`, `@daily`, `@hourly`.
 
 ## Logs
 
-All routine execution is logged to `~/.opencode/routines.log`:
+All routine execution is logged to `~/.cli-routines/routines.log`:
 
 ```
 [2026-05-25 09:00:01] daily-standup        START (opencode: Summarize git changes...)
@@ -164,9 +164,9 @@ All routine execution is logged to `~/.opencode/routines.log`:
 
 | File | Purpose |
 |---|---|
-| `~/.opencode/routines.json` | Routine definitions |
-| `~/.opencode/routines.pid` | Daemon PID file |
-| `~/.opencode/routines.log` | Execution log |
+| `~/.cli-routines/routines.json` | Routine definitions |
+| `~/.cli-routines/routines.pid` | Daemon PID file |
+| `~/.cli-routines/routines.log` | Execution log |
 
 ## Running on login (macOS)
 
