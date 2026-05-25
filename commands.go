@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -24,9 +25,8 @@ func initCmd() error {
 				Description: "An example routine — edit or remove me",
 				Schedule:    "0 9 * * 1-5",
 				Folder:      os.Getenv("HOME"),
-				Prompt:      "Say hello and tell me the current date",
+				ExecutorRaw: json.RawMessage(`{"type": "shell", "command": "echo Hello from cli-routines"}`),
 				Enabled:     false,
-				Model:       "",
 				Notify:      true,
 			},
 		},
@@ -73,7 +73,6 @@ func startCmd() error {
 
 	AppendLog(fmt.Sprintf("Daemon running with PID %d, %d routine(s)", os.Getpid(), enabled))
 
-	// Write to stdout (goes to log file in daemon mode)
 	fmt.Printf("Started daemon (PID %d) with %d routine(s)\n", os.Getpid(), enabled)
 
 	sigCh := make(chan os.Signal, 1)
@@ -171,7 +170,7 @@ func statusCmd() error {
 	}
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
-	fmt.Fprintln(w, "NAME\tENABLED\tNEXT RUN")
+	fmt.Fprintln(w, "NAME\tEXECUTOR\tENABLED\tNEXT RUN")
 	for _, r := range cfg.Routines {
 		enabled := "no"
 		if r.Enabled {
@@ -185,7 +184,7 @@ func statusCmd() error {
 				nextRun = t.Format("2006-01-02 15:04")
 			}
 		}
-		fmt.Fprintf(w, "%s\t%s\t%s\n", r.Name, enabled, nextRun)
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", r.Name, r.ExecutorType(), enabled, nextRun)
 	}
 	w.Flush()
 	return nil
@@ -203,7 +202,7 @@ func listCmd() error {
 	}
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
-	fmt.Fprintln(w, "NAME\tDESCRIPTION\tSCHEDULE\tFOLDER\tENABLED")
+	fmt.Fprintln(w, "NAME\tDESCRIPTION\tSCHEDULE\tEXECUTOR\tFOLDER\tENABLED")
 	for _, r := range cfg.Routines {
 		enabled := "no"
 		if r.Enabled {
@@ -213,7 +212,8 @@ func listCmd() error {
 		if len(desc) > 40 {
 			desc = desc[:37] + "..."
 		}
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", r.Name, desc, r.Schedule, r.Folder, enabled)
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n",
+			r.Name, desc, r.Schedule, r.ExecutorType(), r.Folder, enabled)
 	}
 	w.Flush()
 	return nil
@@ -230,9 +230,9 @@ func runCmd(name string) error {
 	}
 
 	var found *Routine
-	for _, r := range cfg.Routines {
-		if strings.EqualFold(r.Name, name) {
-			found = &r
+	for i := range cfg.Routines {
+		if strings.EqualFold(cfg.Routines[i].Name, name) {
+			found = &cfg.Routines[i]
 			break
 		}
 	}
@@ -240,7 +240,11 @@ func runCmd(name string) error {
 		return fmt.Errorf("no routine named %q", name)
 	}
 
-	fmt.Printf("Running: %s\n  Prompt: %s\n  Folder: %s\n\n", found.Name, found.Prompt, found.Folder)
+	if err := found.Resolve(); err != nil {
+		return fmt.Errorf("cannot resolve executor for %q: %w", name, err)
+	}
+
+	fmt.Printf("Running: %s\n  Type: %s\n  Folder: %s\n\n", found.Name, found.ExecutorSummary(), found.Folder)
 	start := time.Now()
 	execute(*found)
 	fmt.Printf("\nFinished in %s\n", time.Since(start).Round(time.Second))

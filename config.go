@@ -8,18 +8,45 @@ import (
 )
 
 type Routine struct {
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Schedule    string `json:"schedule"`
-	Folder      string `json:"folder"`
-	Prompt      string `json:"prompt"`
-	Enabled     bool   `json:"enabled"`
-	Model       string `json:"model"`
-	Notify      bool   `json:"notify"`
+	Name        string          `json:"name"`
+	Description string          `json:"description"`
+	Schedule    string          `json:"schedule"`
+	Folder      string          `json:"folder"`
+	ExecutorRaw json.RawMessage `json:"executor"`
+	Enabled     bool            `json:"enabled"`
+	Notify      bool            `json:"notify"`
+
+	executor Executor
 }
 
 type Config struct {
 	Routines []Routine `json:"routines"`
+}
+
+func (r *Routine) Resolve() error {
+	exec, err := NewExecutor(r.ExecutorRaw)
+	if err != nil {
+		return err
+	}
+	r.executor = exec
+	return nil
+}
+
+func (r *Routine) ExecutorType() string {
+	var et struct {
+		Type string `json:"type"`
+	}
+	if err := json.Unmarshal(r.ExecutorRaw, &et); err != nil {
+		return "unknown"
+	}
+	return et.Type
+}
+
+func (r *Routine) ExecutorSummary() string {
+	if r.executor == nil {
+		return r.ExecutorType()
+	}
+	return r.executor.Describe()
 }
 
 func ConfigDir() (string, error) {

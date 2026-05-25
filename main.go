@@ -10,8 +10,11 @@ import (
 func main() {
 	root := &cobra.Command{
 		Use:   "routines",
-		Short: "Schedule and run OpenCode routines",
-		Long: `routines lets you schedule OpenCode prompts to run automatically.
+		Short: "Schedule and run local routines",
+		Long: `routines lets you define scheduled tasks in a JSON config file.
+
+Each routine defines a schedule (cron), a working folder, and an executor
+type — shell commands, OpenCode prompts, or Claude prompts.
 
 Define routines in ~/.opencode/routines.json and run them on a cron schedule.`,
 		SilenceUsage: true,

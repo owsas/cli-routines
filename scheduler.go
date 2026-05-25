@@ -18,13 +18,17 @@ func NewScheduler() *Scheduler {
 }
 
 func (s *Scheduler) Start(cfg *Config) error {
-	for _, routine := range cfg.Routines {
-		if !routine.Enabled {
+	for i := range cfg.Routines {
+		if !cfg.Routines[i].Enabled {
 			continue
 		}
-		r := routine
+		r := &cfg.Routines[i]
+		if err := r.Resolve(); err != nil {
+			AppendLog(fmt.Sprintf("Skipping routine %q: cannot resolve executor: %v", r.Name, err))
+			continue
+		}
 		_, err := s.cron.AddFunc(r.Schedule, func() {
-			execute(r)
+			execute(*r)
 		})
 		if err != nil {
 			return fmt.Errorf("invalid schedule for routine %q: %w", r.Name, err)

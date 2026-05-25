@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -10,34 +11,152 @@ import (
 	"github.com/gen2brain/beeep"
 )
 
-func execute(routine Routine) {
-	start := time.Now()
-	timestamp := start.Format("2006-01-02 15:04:05")
-	AppendLog(fmt.Sprintf("[%s] %-20s START", timestamp, routine.Name))
+type Executor interface {
+	Run(folder string) (string, error)
+	Describe() string
+}
 
-	args := []string{"run", routine.Prompt}
-	args = append(args, "--dir", routine.Folder)
-	args = append(args, "--dangerously-skip-permissions")
-	if routine.Model != "" {
-		args = append(args, "--model", routine.Model)
+type executorType struct {
+	Type string `json:"type"`
+}
+
+func NewExecutor(raw json.RawMessage) (Executor, error) {
+	var et executorType
+	if err := json.Unmarshal(raw, &et); err != nil {
+		return nil, fmt.Errorf("cannot read executor type: %w", err)
 	}
+	switch et.Type {
+	case "opencode":
+		var e openCodeExecutor
+		if err := json.Unmarshal(raw, &e); err != nil {
+			return nil, fmt.Errorf("invalid opencode executor: %w", err)
+		}
+		return &e, nil
+	case "shell":
+		var e shellExecutor
+		if err := json.Unmarshal(raw, &e); err != nil {
+			return nil, fmt.Errorf("invalid shell executor: %w", err)
+		}
+		return &e, nil
+	case "claude":
+		var e claudeExecutor
+		if err := json.Unmarshal(raw, &e); err != nil {
+			return nil, fmt.Errorf("invalid claude executor: %w", err)
+		}
+		return &e, nil
+	default:
+		return nil, fmt.Errorf("unknown executor type: %q (supported: opencode, shell, claude)", et.Type)
+	}
+}
 
-	AppendLog(fmt.Sprintf("[%s] %-20s Running: opencode %s", timestamp, routine.Name, strings.Join(args, " ")))
+type openCodeExecutor struct {
+	Type   string `json:"type"`
+	Prompt string `json:"prompt"`
+	Model  string `json:"model"`
+}
 
+func (e *openCodeExecutor) Run(folder string) (string, error) {
+	args := []string{"run", e.Prompt, "--dir", folder, "--dangerously-skip-permissions"}
+	if e.Model != "" {
+		args = append(args, "--model", e.Model)
+	}
 	cmd := exec.Command("opencode", args...)
 	cmd.Env = append(os.Environ(), "OPENCODE_DISABLE_AUTOUPDATE=true")
 	output, err := cmd.CombinedOutput()
+	return string(output), err
+}
+
+func (e *openCodeExecutor) Describe() string {
+	if e.Prompt == "" {
+		return "opencode"
+	}
+	desc := e.Prompt
+	if len(desc) > 50 {
+		desc = desc[:47] + "..."
+	}
+	return fmt.Sprintf("opencode: %s", desc)
+}
+
+type shellExecutor struct {
+	Type    string `json:"type"`
+	Command string `json:"command"`
+}
+
+func (e *shellExecutor) Run(folder string) (string, error) {
+	cmd := exec.Command("bash", "-c", e.Command)
+	cmd.Dir = folder
+	cmd.Env = os.Environ()
+	output, err := cmd.CombinedOutput()
+	return string(output), err
+}
+
+func (e *shellExecutor) Describe() string {
+	if e.Command == "" {
+		return "shell"
+	}
+	desc := e.Command
+	if len(desc) > 50 {
+		desc = desc[:47] + "..."
+	}
+	return fmt.Sprintf("shell: %s", desc)
+}
+
+type claudeExecutor struct {
+	Type   string `json:"type"`
+	Prompt string `json:"prompt"`
+	Model  string `json:"model"`
+}
+
+func (e *claudeExecutor) Run(folder string) (string, error) {
+	args := []string{"-p", e.Prompt}
+	if e.Model != "" {
+		args = append(args, "--model", e.Model)
+	}
+	cmd := exec.Command("claude", args...)
+	cmd.Dir = folder
+	cmd.Env = os.Environ()
+	output, err := cmd.CombinedOutput()
+	return string(output), err
+}
+
+func (e *claudeExecutor) Describe() string {
+	if e.Prompt == "" {
+		return "claude"
+	}
+	desc := e.Prompt
+	if len(desc) > 50 {
+		desc = desc[:47] + "..."
+	}
+	return fmt.Sprintf("claude: %s", desc)
+}
+
+func execute(routine Routine) {
+	if routine.executor == nil {
+		AppendLog(fmt.Sprintf("BUG: routine %q has nil executor", routine.Name))
+		return
+	}
+
+	start := time.Now()
+	timestamp := start.Format("2006-01-02 15:04:05")
+
+	execType := routine.ExecutorType()
+	desc := routine.executor.Describe()
+
+	AppendLog(fmt.Sprintf("[%s] %-20s START (%s)", timestamp, routine.Name, desc))
+	AppendLog(fmt.Sprintf("[%s] %-20s Running in: %s", timestamp, routine.Name, routine.Folder))
+
+	output, err := routine.executor.Run(routine.Folder)
 
 	elapsed := time.Since(start).Round(time.Second)
 	if err != nil {
 		AppendLog(fmt.Sprintf("[%s] %-20s ERROR (%s): %v", timestamp, routine.Name, elapsed, err))
 		if len(output) > 0 {
-			AppendLog(fmt.Sprintf("[%s] %-20s OUTPUT:\n%s", timestamp, routine.Name, string(output)))
+			AppendLog(fmt.Sprintf("[%s] %-20s OUTPUT:\n%s", timestamp, routine.Name, strings.TrimSpace(output)))
 		}
 		if routine.Notify {
 			beeep.Notify(
 				fmt.Sprintf("Routine failed: %s", routine.Name),
-				fmt.Sprintf("Error after %s: %v", elapsed, err),
+				fmt.Sprintf("%s: error after %s", execType, elapsed),
 				"",
 			)
 		}
@@ -48,7 +167,7 @@ func execute(routine Routine) {
 	if routine.Notify {
 		beeep.Notify(
 			fmt.Sprintf("Routine done: %s", routine.Name),
-			fmt.Sprintf("Completed in %s", elapsed),
+			fmt.Sprintf("%s completed in %s", execType, elapsed),
 			"",
 		)
 	}
