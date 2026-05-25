@@ -1,0 +1,24 @@
+{
+  "routines": [
+    {
+      "name": "daily-standup",
+      "description": "Prep standup notes from yesterday's changes",
+      "schedule": "0 9 * * 1-5",
+      "folder": "/Users/juan/Vcity/vcity-app",
+      "prompt": "Summarize git changes from the last 24 hours for a standup update",
+      "enabled": true,
+      "model": "",
+      "notify": true
+    },
+    {
+      "name": "weekly-code-review",
+      "description": "Weekly code quality review",
+      "schedule": "0 10 * * 5",
+      "folder": "/Users/juan/Vcity/vcity-monorepo",
+      "prompt": "Review the codebase for potential issues, tech debt, and suggest improvements",
+      "enabled": false,
+      "model": "",
+      "notify": true
+    }
+  ]
+}
