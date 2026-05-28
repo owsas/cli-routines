@@ -106,12 +106,26 @@ Set `model` to a specific model (e.g. `"anthropic/claude-sonnet-4-20250514"`) or
 {
   "type": "claude",
   "prompt": "Review this codebase for potential issues",
-  "model": ""
+  "model": "",
+  "permissionMode": "",
+  "dangerouslySkipPermissions": false
 }
 ```
 
 Runs `claude -p "<prompt>"` in the routine's folder. Requires the [Claude CLI](https://docs.anthropic.com/en/docs/claude-code).  
 Set `model` to override the default model.
+
+For **unattended** routines that need to edit files or run tools without an
+approval prompt, set the permission mode:
+
+- `permissionMode` — maps to Claude's `--permission-mode` flag. One of
+  `default`, `acceptEdits`, `plan`, `bypassPermissions`.
+- `dangerouslySkipPermissions` — shorthand for `permissionMode: "bypassPermissions"`
+  (mirrors the opencode executor's `--dangerously-skip-permissions`). Ignored
+  when `permissionMode` is set explicitly.
+
+Without either, `claude -p` uses whatever mode your Claude settings default to —
+which may pause on approval prompts and stall a scheduled run.
 
 ### Cron syntax
 
