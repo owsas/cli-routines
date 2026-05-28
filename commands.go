@@ -114,9 +114,7 @@ func startDaemon() error {
 	}
 
 	cmd := exec.Command(exe, "start", "--foreground")
-	cmd.SysProcAttr = &syscall.SysProcAttr{
-		Setsid: true,
-	}
+	spawnDaemonProcess(cmd)
 
 	logPath, _ := LogPath()
 	if logPath != "" {
@@ -156,7 +154,7 @@ func statusCmd() error {
 		pid, _ := ReadPid()
 		fmt.Printf("Daemon: RUNNING (PID %d)\n\n", pid)
 	} else {
-		fmt.Println("Daemon: STOPPED\n")
+		fmt.Println("Daemon: STOPPED")
 	}
 
 	cfg, err := LoadConfig()
