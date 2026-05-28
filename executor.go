@@ -105,6 +105,14 @@ type claudeExecutor struct {
 	Type   string `json:"type"`
 	Prompt string `json:"prompt"`
 	Model  string `json:"model"`
+	// PermissionMode maps to Claude's --permission-mode flag
+	// (default, acceptEdits, plan, bypassPermissions). Use this for unattended
+	// routines that must edit files or run tools without an approval prompt.
+	PermissionMode string `json:"permissionMode"`
+	// DangerouslySkipPermissions is a convenience shorthand for
+	// PermissionMode: "bypassPermissions" (mirrors the opencode executor).
+	// Ignored when PermissionMode is set explicitly.
+	DangerouslySkipPermissions bool `json:"dangerouslySkipPermissions"`
 }
 
 func (e *claudeExecutor) Run(folder string) (string, error) {
@@ -112,11 +120,24 @@ func (e *claudeExecutor) Run(folder string) (string, error) {
 	if e.Model != "" {
 		args = append(args, "--model", e.Model)
 	}
+	if mode := e.permissionMode(); mode != "" {
+		args = append(args, "--permission-mode", mode)
+	}
 	cmd := exec.Command("claude", args...)
 	cmd.Dir = folder
 	cmd.Env = os.Environ()
 	output, err := cmd.CombinedOutput()
 	return string(output), err
+}
+
+func (e *claudeExecutor) permissionMode() string {
+	if e.PermissionMode != "" {
+		return e.PermissionMode
+	}
+	if e.DangerouslySkipPermissions {
+		return "bypassPermissions"
+	}
+	return ""
 }
 
 func (e *claudeExecutor) Describe() string {
