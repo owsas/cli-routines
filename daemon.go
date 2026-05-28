@@ -48,24 +48,6 @@ func RemovePidFile() {
 	os.Remove(path)
 }
 
-func IsDaemonRunning() bool {
-	pid, err := ReadPid()
-	if err != nil {
-		return false
-	}
-	process, err := os.FindProcess(pid)
-	if err != nil {
-		RemovePidFile()
-		return false
-	}
-	err = process.Signal(syscall.Signal(0))
-	if err != nil {
-		RemovePidFile()
-		return false
-	}
-	return true
-}
-
 func KillDaemon() error {
 	pid, err := ReadPid()
 	if err != nil {
