@@ -4,7 +4,7 @@
       "name": "daily-standup",
       "description": "Prep standup notes from yesterday's changes",
       "schedule": "0 9 * * 1-5",
-      "folder": "/Users/juan/Vcity/vcity-app",
+      "folder": "/home/user/my-project",
       "executor": {
         "type": "opencode",
         "prompt": "Summarize git changes from the last 24 hours for a standup update",
@@ -17,7 +17,7 @@
       "name": "weekly-code-review",
       "description": "Weekly code quality review via Claude",
       "schedule": "0 14 * * 5",
-      "folder": "/Users/juan/Vcity/vcity-monorepo",
+      "folder": "/home/user/my-monorepo",
       "executor": {
         "type": "claude",
         "prompt": "Review the codebase for potential issues, tech debt, and suggest improvements",
@@ -30,7 +30,7 @@
       "name": "nightly-cleanup",
       "description": "Clean up temp files and build artifacts",
       "schedule": "0 3 * * *",
-      "folder": "/Users/juan/Vcity",
+      "folder": "/home/user",
       "executor": {
         "type": "shell",
         "command": "find . -name '*.tmp' -mtime +7 -delete 2>/dev/null; echo 'Cleanup complete'"
