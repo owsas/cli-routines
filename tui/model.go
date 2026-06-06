@@ -36,7 +36,6 @@ type fieldKind int
 
 const (
 	fieldText fieldKind = iota
-	fieldTextArea
 	fieldBool
 	fieldSelect
 )
@@ -251,17 +250,28 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width = msg.Width
 		m.height = msg.Height
 
-		// Update table height
+		// Update table dimensions
+		m.table.SetWidth(msg.Width - 6)
 		m.table.SetHeight(max(5, msg.Height-14))
 
-		// Update viewports
-		if m.runVPReady {
-			m.runVP.Width = min(msg.Width-6, 120)
-			m.runVP.Height = msg.Height - 10
+		// Initialize or resize viewports (for runner and log viewer)
+		vpWidth := min(msg.Width-6, 120)
+		vpHeight := msg.Height - 10
+
+		if !m.runVPReady {
+			m.runVP = viewport.New(vpWidth, vpHeight)
+			m.runVPReady = true
+		} else {
+			m.runVP.Width = vpWidth
+			m.runVP.Height = vpHeight
 		}
-		if m.logVPReady {
-			m.logVP.Width = min(msg.Width-6, 120)
-			m.logVP.Height = msg.Height - 10
+
+		if !m.logVPReady {
+			m.logVP = viewport.New(vpWidth, vpHeight)
+			m.logVPReady = true
+		} else {
+			m.logVP.Width = vpWidth
+			m.logVP.Height = vpHeight
 		}
 
 	case configLoadedMsg:
@@ -734,17 +744,17 @@ func (m *model) buildDynamicFields(execType string) []editorField {
 	switch execType {
 	case "shell":
 		fields = []editorField{
-			{label: "Command", kind: fieldTextArea, value: &m.editCommand},
+			{label: "Command", kind: fieldText, value: &m.editCommand},
 		}
 	case "opencode":
 		fields = []editorField{
-			{label: "Prompt", kind: fieldTextArea, value: &m.editPrompt},
+			{label: "Prompt", kind: fieldText, value: &m.editPrompt},
 			{label: "Model", kind: fieldText, value: &m.editModel},
 		}
 	case "claude":
 		pModes := []string{"", "default", "acceptEdits", "plan", "bypassPermissions"}
 		fields = []editorField{
-			{label: "Prompt", kind: fieldTextArea, value: &m.editPrompt},
+			{label: "Prompt", kind: fieldText, value: &m.editPrompt},
 			{label: "Model", kind: fieldText, value: &m.editModel},
 			{label: "Permission Mode", kind: fieldSelect, options: pModes, selected: &m.editPermSelected},
 			{label: "Skip Permissions", kind: fieldBool, checked: &m.editDangerouslySkipPerm},
@@ -1141,6 +1151,28 @@ func (m *model) viewDashboard() string {
 func (m *model) viewEditor() string {
 	var b strings.Builder
 
+	// Compute responsive input width
+	inputWidth := m.width - 32
+	if inputWidth < 30 {
+		inputWidth = 30
+	}
+	if inputWidth > 80 {
+		inputWidth = 80
+	}
+
+	// Build input styles with dynamic width
+	inputStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(colBorder).
+		Padding(0, 1).
+		Width(inputWidth)
+
+	inputFocusedStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(colPrimary).
+		Padding(0, 1).
+		Width(inputWidth)
+
 	// Header
 	title := "New Routine"
 	if m.editIdx >= 0 {
@@ -1164,29 +1196,12 @@ func (m *model) viewEditor() string {
 			if f.ti != nil {
 				if f.focused {
 					f.ti.Prompt = "▸ "
-					b.WriteString(label + formInputFocused.Render(f.ti.View()) + "\n")
+					b.WriteString(label + inputFocusedStyle.Render(f.ti.View()) + "\n")
 				} else {
 					f.ti.Prompt = "  "
-					b.WriteString(label + formInput.Render(f.ti.View()) + "\n")
+					b.WriteString(label + inputStyle.Render(f.ti.View()) + "\n")
 				}
 			}
-
-		case fieldTextArea:
-			val := ""
-			if f.value != nil {
-				val = *f.value
-			}
-			style := formInput
-			if f.focused {
-				style = formInputFocused
-			}
-			// Show first few lines of the text area
-			displayVal := val
-			if len(displayVal) > 120 {
-				displayVal = displayVal[:117] + "..."
-			}
-			displayVal = strings.ReplaceAll(displayVal, "\n", "↵ ")
-			b.WriteString(label + style.Render(displayVal) + "\n")
 
 		case fieldBool:
 			status := "○"
