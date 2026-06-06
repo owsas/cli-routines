@@ -5,6 +5,8 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+
+	"cli-routines/tui"
 )
 
 func main() {
@@ -76,7 +78,20 @@ Define routines in ~/.cli-routines/routines.json and run them on a cron schedule
 		},
 	}
 
-	root.AddCommand(start, stop, status, list, initCfg, run)
+	tuiCmd := &cobra.Command{
+		Use:   "tui",
+		Short: "Open the terminal UI for managing routines",
+		Long: `Open an interactive terminal UI to manage routines.
+
+A Bubble Tea TUI that shows a dashboard of all routines, lets you
+add/edit/delete/toggle routines, run them interactively, view logs,
+and start/stop the daemon — all without editing JSON by hand.`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return tui.Run()
+		},
+	}
+
+	root.AddCommand(start, stop, status, list, initCfg, run, tuiCmd)
 	if err := root.Execute(); err != nil {
 		os.Exit(1)
 	}

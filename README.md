@@ -74,7 +74,7 @@ Routines are defined in `~/.cli-routines/routines.json`.
 | `enabled` | bool | Whether the daemon should run this on schedule |
 | `notify` | bool | Whether to show a desktop notification on completion |
 
-### Executor types
+### Executor types (`executor` object)
 
 #### `shell` — Run a shell command
 
@@ -161,6 +161,47 @@ Supports `@every` syntax too: `@every 1h30m`, `@every 5m`, `@daily`, `@hourly`.
 | `routines start --foreground` | Start the daemon in the foreground (pinned to terminal) |
 | `routines stop` | Stop the running daemon |
 | `routines run <name>` | Run a single routine immediately (foreground) |
+| `routines tui` | Open the interactive TUI (Bubble Tea terminal dashboard) |
+
+## Terminal UI
+
+`routines tui` opens an interactive terminal UI for managing your routines
+without editing JSON by hand. It provides:
+
+- **Dashboard** — See all routines at a glance with daemon status, navigate with
+  arrow keys, toggle enabled/disabled, and see next run times.
+- **Visual editor** — Add and edit routines with a form interface. Select the
+  executor type (shell, opencode, claude) and see only the relevant fields.
+- **Run & test** — Select a routine and press `r` to run it immediately with
+  live output.
+- **Daemon management** — Press `S` to start the daemon, `T` to stop it.
+- **Log viewer** — Press `l` to browse execution logs.
+
+### Dashboard keybindings
+
+| Key | Action |
+|---|---|
+| `↑/↓` or `k/j` | Navigate routines |
+| `Enter` or `e` | Edit selected routine |
+| `Space` | Toggle enabled |
+| `n` | New routine |
+| `d` | Delete routine |
+| `r` | Run routine |
+| `l` | View logs |
+| `S` | Start daemon |
+| `T` | Stop daemon |
+| `Ctrl+R` | Refresh |
+| `?` | Help |
+| `q` | Quit |
+
+### Editor keybindings
+
+| Key | Action |
+|---|---|
+| `Tab` / `Shift+Tab` | Navigate fields |
+| `Enter` | Toggle bool, cycle select |
+| `Ctrl+S` | Save routine |
+| `Esc` | Cancel / back |
 
 ## Logs
 

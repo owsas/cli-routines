@@ -1,4 +1,4 @@
-package main
+package core
 
 import (
 	"fmt"
@@ -7,16 +7,19 @@ import (
 	"github.com/robfig/cron/v3"
 )
 
+// Scheduler manages cron-based scheduling of routines.
 type Scheduler struct {
 	cron *cron.Cron
 }
 
+// NewScheduler creates a new Scheduler.
 func NewScheduler() *Scheduler {
 	return &Scheduler{
 		cron: cron.New(cron.WithLocation(time.Local)),
 	}
 }
 
+// Start begins scheduling all enabled routines.
 func (s *Scheduler) Start(cfg *Config) error {
 	for i := range cfg.Routines {
 		if !cfg.Routines[i].Enabled {
@@ -28,7 +31,7 @@ func (s *Scheduler) Start(cfg *Config) error {
 			continue
 		}
 		_, err := s.cron.AddFunc(r.Schedule, func() {
-			execute(*r)
+			Execute(*r)
 		})
 		if err != nil {
 			return fmt.Errorf("invalid schedule for routine %q: %w", r.Name, err)
@@ -38,11 +41,13 @@ func (s *Scheduler) Start(cfg *Config) error {
 	return nil
 }
 
+// Stop gracefully stops the scheduler.
 func (s *Scheduler) Stop() {
 	ctx := s.cron.Stop()
 	<-ctx.Done()
 }
 
+// NextRun calculates the next time a routine will run.
 func (s *Scheduler) NextRun(routine Routine) (time.Time, error) {
 	parser := cron.NewParser(cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow | cron.Descriptor)
 	sched, err := parser.Parse(routine.Schedule)
@@ -52,6 +57,7 @@ func (s *Scheduler) NextRun(routine Routine) (time.Time, error) {
 	return sched.Next(time.Now()), nil
 }
 
+// Entries returns the currently scheduled cron entries.
 func (s *Scheduler) Entries() []cron.Entry {
 	return s.cron.Entries()
 }
