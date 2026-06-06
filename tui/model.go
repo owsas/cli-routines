@@ -155,6 +155,7 @@ func NewModel() (*model, error) {
 		keys:     FullKeyMap(),
 		help:     help.New(),
 		spinner:  spinner.New(spinner.WithStyle(lipgloss.NewStyle().Foreground(colSecondary))),
+		config:   &core.Config{},
 		resultCh: make(chan tea.Msg, 10),
 	}
 
