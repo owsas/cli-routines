@@ -1,4 +1,4 @@
-package main
+package core
 
 import (
 	"encoding/json"
@@ -11,6 +11,7 @@ import (
 	"github.com/gen2brain/beeep"
 )
 
+// Executor defines the interface for running a routine.
 type Executor interface {
 	Run(folder string) (string, error)
 	Describe() string
@@ -20,6 +21,7 @@ type executorType struct {
 	Type string `json:"type"`
 }
 
+// NewExecutor creates an Executor from raw JSON based on the "type" field.
 func NewExecutor(raw json.RawMessage) (Executor, error) {
 	var et executorType
 	if err := json.Unmarshal(raw, &et); err != nil {
@@ -49,33 +51,7 @@ func NewExecutor(raw json.RawMessage) (Executor, error) {
 	}
 }
 
-type openCodeExecutor struct {
-	Type   string `json:"type"`
-	Prompt string `json:"prompt"`
-	Model  string `json:"model"`
-}
-
-func (e *openCodeExecutor) Run(folder string) (string, error) {
-	args := []string{"run", e.Prompt, "--dir", folder, "--dangerously-skip-permissions"}
-	if e.Model != "" {
-		args = append(args, "--model", e.Model)
-	}
-	cmd := exec.Command("opencode", args...)
-	cmd.Env = append(os.Environ(), "OPENCODE_DISABLE_AUTOUPDATE=true")
-	output, err := cmd.CombinedOutput()
-	return string(output), err
-}
-
-func (e *openCodeExecutor) Describe() string {
-	if e.Prompt == "" {
-		return "opencode"
-	}
-	desc := e.Prompt
-	if len(desc) > 50 {
-		desc = desc[:47] + "..."
-	}
-	return fmt.Sprintf("opencode: %s", desc)
-}
+// --- Shell Executor ---
 
 type shellExecutor struct {
 	Type    string `json:"type"`
@@ -101,18 +77,58 @@ func (e *shellExecutor) Describe() string {
 	return fmt.Sprintf("shell: %s", desc)
 }
 
+// --- OpenCode Executor ---
+
+type openCodeExecutor struct {
+	Type   string `json:"type"`
+	Prompt string `json:"prompt"`
+	Model  string `json:"model"`
+}
+
+func (e *openCodeExecutor) Run(folder string) (string, error) {
+	args := []string{"run", e.Prompt, "--dir", folder, "--dangerously-skip-permissions"}
+	if e.Model != "" {
+		args = append(args, "--model", e.Model)
+	}
+	cmd := exec.Command("opencode", args...)
+	cmd.Dir = folder
+	cmd.Env = append(os.Environ(), "OPENCODE_DISABLE_AUTOUPDATE=true")
+	output, err := cmd.CombinedOutput()
+	return string(output), err
+}
+
+func (e *openCodeExecutor) Describe() string {
+	if e.Prompt == "" {
+		return "opencode"
+	}
+	desc := e.Prompt
+	if len(desc) > 50 {
+		desc = desc[:47] + "..."
+	}
+	return fmt.Sprintf("opencode: %s", desc)
+}
+
+// --- Claude Executor ---
+
 type claudeExecutor struct {
 	Type   string `json:"type"`
 	Prompt string `json:"prompt"`
 	Model  string `json:"model"`
 	// PermissionMode maps to Claude's --permission-mode flag
-	// (default, acceptEdits, plan, bypassPermissions). Use this for unattended
-	// routines that must edit files or run tools without an approval prompt.
+	// (default, acceptEdits, plan, bypassPermissions).
 	PermissionMode string `json:"permissionMode"`
-	// DangerouslySkipPermissions is a convenience shorthand for
-	// PermissionMode: "bypassPermissions" (mirrors the opencode executor).
-	// Ignored when PermissionMode is set explicitly.
+	// DangerouslySkipPermissions is a shorthand for bypassPermissions.
 	DangerouslySkipPermissions bool `json:"dangerouslySkipPermissions"`
+}
+
+func (e *claudeExecutor) permissionMode() string {
+	if e.PermissionMode != "" {
+		return e.PermissionMode
+	}
+	if e.DangerouslySkipPermissions {
+		return "bypassPermissions"
+	}
+	return ""
 }
 
 func (e *claudeExecutor) Run(folder string) (string, error) {
@@ -130,16 +146,6 @@ func (e *claudeExecutor) Run(folder string) (string, error) {
 	return string(output), err
 }
 
-func (e *claudeExecutor) permissionMode() string {
-	if e.PermissionMode != "" {
-		return e.PermissionMode
-	}
-	if e.DangerouslySkipPermissions {
-		return "bypassPermissions"
-	}
-	return ""
-}
-
 func (e *claudeExecutor) Describe() string {
 	if e.Prompt == "" {
 		return "claude"
@@ -151,22 +157,23 @@ func (e *claudeExecutor) Describe() string {
 	return fmt.Sprintf("claude: %s", desc)
 }
 
-func execute(routine Routine) {
-	if routine.executor == nil {
-		AppendLog(fmt.Sprintf("BUG: routine %q has nil executor", routine.Name))
-		return
+// Execute runs a routine with logging and notifications.
+func Execute(routine Routine) (string, error) {
+	executor, err := routine.GetExecutor()
+	if err != nil {
+		return "", fmt.Errorf("cannot resolve executor: %w", err)
 	}
 
 	start := time.Now()
 	timestamp := start.Format("2006-01-02 15:04:05")
 
 	execType := routine.ExecutorType()
-	desc := routine.executor.Describe()
+	desc := executor.Describe()
 
 	AppendLog(fmt.Sprintf("[%s] %-20s START (%s)", timestamp, routine.Name, desc))
 	AppendLog(fmt.Sprintf("[%s] %-20s Running in: %s", timestamp, routine.Name, routine.Folder))
 
-	output, err := routine.executor.Run(routine.Folder)
+	output, err := executor.Run(routine.Folder)
 
 	elapsed := time.Since(start).Round(time.Second)
 	if err != nil {
@@ -181,7 +188,7 @@ func execute(routine Routine) {
 				"",
 			)
 		}
-		return
+		return output, fmt.Errorf("execution failed: %w", err)
 	}
 
 	AppendLog(fmt.Sprintf("[%s] %-20s DONE (%s)", timestamp, routine.Name, elapsed))
@@ -192,4 +199,5 @@ func execute(routine Routine) {
 			"",
 		)
 	}
+	return output, nil
 }

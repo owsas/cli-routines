@@ -1,4 +1,4 @@
-package main
+package core
 
 import (
 	"fmt"
@@ -8,6 +8,7 @@ import (
 	"syscall"
 )
 
+// PidPath returns the path to the daemon PID file.
 func PidPath() (string, error) {
 	dir, err := ConfigDir()
 	if err != nil {
@@ -16,6 +17,7 @@ func PidPath() (string, error) {
 	return filepath.Join(dir, "routines.pid"), nil
 }
 
+// WritePid writes the given PID to the PID file.
 func WritePid(pid int) error {
 	path, err := PidPath()
 	if err != nil {
@@ -24,6 +26,7 @@ func WritePid(pid int) error {
 	return os.WriteFile(path, []byte(strconv.Itoa(pid)), 0644)
 }
 
+// ReadPid reads the PID from the PID file.
 func ReadPid() (int, error) {
 	path, err := PidPath()
 	if err != nil {
@@ -40,6 +43,7 @@ func ReadPid() (int, error) {
 	return pid, nil
 }
 
+// RemovePidFile removes the PID file.
 func RemovePidFile() {
 	path, err := PidPath()
 	if err != nil {
@@ -48,6 +52,7 @@ func RemovePidFile() {
 	os.Remove(path)
 }
 
+// KillDaemon sends SIGTERM to the daemon process.
 func KillDaemon() error {
 	pid, err := ReadPid()
 	if err != nil {
